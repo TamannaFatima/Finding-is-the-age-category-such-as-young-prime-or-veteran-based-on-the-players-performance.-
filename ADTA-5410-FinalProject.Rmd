@@ -1,0 +1,316 @@
+---
+title: "Group-12"
+output: html_document
+date: "2023-12-04"
+---
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r setup, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+```
+The dataset that we are using for this project is NBA player stats 2023 season.
+### Our research question is predictingng the age category such as young, prime, or veteran based on the players performance.
+# 1.Data Understanding and EDA
+Our dataset consists of NBA players statistics of the year 2023 based on different performance metrics. It consists of total 539 rows ans 30 columns.
+```{r import data}
+nba_data<-read_csv("2023_nba_player_stats.csv", col_names=TRUE,na = c("NULL", "", "PrivacySuppressed"))
+dim(nba_data)
+head(nba_data)
+str(nba_data)
+summary(nba_data)
+```
+
+# Data Cleaning
+In this process we are cleaning the data by removing unnecssary columns that are not rqeuired for our analysis. WE had already checked for missing values and outliers using Microsoft Excel.
+```{r}
+# Load the dplyr package if not already loaded
+# install.packages("dplyr")
+library(dplyr)
+
+# Specify columns to remove
+cols_to_remove <- c("FGA", "FG%", "3PM", "3PA", "3P%", "FTM", "FTA", "FT%", "OREB", "DREB", "REB", "AST", "TOV", "STL", "BLK", "PF", "FP", "DD2", "TD3")
+
+# Remove specified columns from nba_data
+nba_data <- nba_data %>%
+  select(-one_of(cols_to_remove))
+
+# Display the remaining column names
+colnames(nba_data)
+
+```
+
+
+## Exploratory Data Analysis
+Using EDA we want to understand and determine the relationships between the variables present in our data set. We performed different analyisis such as bivariate, correlation and Heatmap.
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+# Select only the numeric columns for the correlation matrix
+numeric_data <- nba_data %>% select_if(is.numeric)
+
+# Calculate the correlation matrix
+correlation_matrix <- cor(numeric_data, use = "complete.obs", method = "pearson")
+
+# Melt the correlation matrix into a long format suitable for ggplot2
+melted_correlation_matrix <- melt(correlation_matrix)
+
+# Create the heatmap
+heatmap_plot <- ggplot(melted_correlation_matrix, aes(Var1, Var2, fill = value)) +
+  geom_tile() +
+  geom_text(aes(label = round(value, 2)), color = "black", size = 2.5) + # Adjust text size as needed
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), space = "Lab", 
+                       name="Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6), # Adjust text angle and size as needed
+        axis.text.y = element_text(angle = 45, hjust = 1, size = 6), # Adjust text angle and size as needed
+        axis.title = element_blank(),
+        legend.position = "right") +
+  labs(title = "Correlation Heatmap")
+
+# Print the heatmap
+print(heatmap_plot)
+
+
+
+```
+
+# Bivariate Analysis
+```{r}
+# Scatter plot for two numerical variables
+ggplot(nba_data, aes(x = PTS, y = Team)) + geom_point()
+```
+# Correlation Analysis
+
+```{r}
+# Correlation matrix for numerical variables
+cor(nba_data %>% select(PTS, W, L))
+
+```
+# Heatmap
+
+```{r}
+# We'll first gather the wins and losses into a 'long' format
+nba_long <- nba_data %>%
+  select(Team, W, L) %>%
+  gather(key = "Statistic", value = "Value", -Team)
+# Now we can plot the heatmap
+ggplot(nba_long, aes(x = Statistic, y = Team, fill = Value)) +
+  geom_tile(color = "white") + # Add a white border for each tile
+  scale_fill_gradient(low = "blue", high = "red") + # Gradient fill based on the Value
+  theme_minimal() + # Minimal theme
+  labs(x = "", y = "", title = "Heatmap of Wins and Losses by Team", fill = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate X labels for clarity
+```
+# 2.Data Preparation and parititioning using 'set.seed(5555) 
+```{r}
+set.seed(5555)
+nba_data$AgeCat <- cut(nba_data$Age, breaks = c(0, 25, 30, Inf), labels = c("Young", "Prime", "Veteran"))
+#splitting the data into 80,20.
+train_rows <- round(nrow(nba_data) * 0.8)
+train_index <- sample(1:nrow(nba_data), train_rows)
+train <- nba_data[train_index, ]
+test <- nba_data[-train_index, ]
+```
+
+# 3.Model Construction
+Data modeling is main part of this process, as we can visualize the structure of the data that we have and try to organize the data elements and how these data elements are related to each other. With this process, we can understand whether the model that we are building on a set of data can meet the requirements of the system based on the results and performance of the model.
+Our target variable is age category that we are creating based on the ages and our response variables are PTS, W, and L.We partitioned our data with 80 percent training data and 20 percent validation data with seed as 5555.
+We want to use the following three models as in our project:
+# Decision Tree
+As we want to identify the relationship between age categories and performance metrics, I feel decision tree is better as these are very complex characteristics.Even using decision tree can also handle numerical data and categorical data. Utlimately, we felt decision tree is better for our analysis.
+# Random Forest
+We are choosing Random Forest as it is beneficial for different types of datasets and mostly when the relationship between predictors and target variables is complex. As our research statement is to capture the non linear relationship between age and performance we felt random forest is best suited. And also compared to other model random forest is less sensitive to outliers if there are any.
+# Gradient boosting model.
+As we all know Gradient boosting model is very powerful technique and helps in reducing bias and weakness and makes predictions which are better than random chances we felt os using gradient boosting model.
+
+# 4.Model Selection/Validation
+# Decision Tree
+```{r}
+library(rpart)
+#training decision tree
+tree_model <- rpart(AgeCat ~ PTS + W + L, data = train, method = "class")
+#plotting the decision tree
+plot(tree_model,margin = 0.1)
+text(tree_model, cex = 0.8, all = TRUE)
+#predicting on the validation or test data
+predictions <- predict(tree_model, newdata = test, type = "class")
+# Evaluating the model
+confumatrix <- table(predictions, test$AgeCat)
+print(confumatrix)
+# Calculating accuracy, precision, recall and f1 score
+accuracy <- sum(diag(confumatrix)) / sum(confumatrix)
+print(paste("Accuracy:", accuracy))
+precision <- diag(confumatrix) / rowSums(confumatrix)
+recall <- diag(confumatrix) / colSums(confumatrix)
+f1score <- 2 * (precision * recall) / (precision + recall)
+for (i in seq_along(precision)) {
+  print(paste("Class:", levels(test$AgeCat)[i]))
+  print(paste("Precision:", precision[i]))
+  print(paste("Recall:", recall[i]))
+  print(paste("F1-Score:", f1score[i]))
+}
+
+```
+
+# Random Forest
+```{r}
+library(randomForest)
+set.seed(5555)
+rf_model <- randomForest(AgeCat ~ PTS + W + L, data = train, ntree = 100, importance = TRUE)
+predictionsrf <- predict(rf_model, newdata = test)
+# Evaluating model
+confumatrix_rf <- table(predictionsrf, test$AgeCat)
+print(confumatrix_rf)
+accuracyrf <- sum(diag(confumatrix_rf)) / sum(confumatrix_rf)
+print(paste("Accuracy:", accuracyrf))
+precision <- diag(confumatrix_rf) / rowSums(confumatrix_rf)
+recall <- diag(confumatrix_rf) / colSums(confumatrix_rf)
+f1score <- 2 * (precision * recall) / (precision + recall)
+for (i in seq_along(precision)) {
+  print(paste("Class:", levels(test$AgeCat)[i]))
+  print(paste("Precision:", precision[i]))
+  print(paste("Recall:", recall[i]))
+  print(paste("F1-Score:", f1score[i]))
+}
+# Printing variable importance
+print("Variable Importance:")
+print(round(importance(rf_model), 2))
+```
+
+# Gradient boosting model.
+```{r}
+library(gbm)
+set.seed(5555)
+gbm_model <- gbm(AgeCat ~ PTS + W + L, data = train, distribution = "multinomial", n.trees = 100, interaction.depth = 3, shrinkage = 0.1)
+predictionsgbm <- predict(gbm_model, newdata = test, n.trees = 100, type = "response")
+predictedclasses <- colnames(predictionsgbm)[apply(predictionsgbm, 1, which.max)]
+confumatrix <- table(predictedclasses, test$AgeCat)
+print(confumatrix)
+accuracy <- sum(diag(confumatrix)) / sum(confumatrix)
+print(paste("Accuracy:", accuracy))
+precision <- diag(confumatrix) / rowSums(confumatrix)
+recall <- diag(confumatrix) / colSums(confumatrix)
+f1score <- 2 * (precision * recall) / (precision + recall)
+print("Precision:")
+print(precision)
+print("Recall:")
+print(recall)
+print("F1-Score:")
+print(f1score)
+```
+
+# 5.Report the prediction and model performance on the validation data.
+Among the three models that we have performed such as decision tree, random forest, and gradient boosting model. I feel that random forest is the better model with better accuracy with 51 percentage approximately. 
+Below we can see the other metrics such as precision, recall and f1 score for each category.
+"Class: Young"
+[1] "Precision: 0.565789473684211"
+[1] "Recall: 0.767857142857143"
+[1] "F1-Score: 0.651515151515152"
+"Class: Prime"
+[1] "Precision: 0.458333333333333"
+[1] "Recall: 0.282051282051282"
+[1] "F1-Score: 0.349206349206349"
+"Class: Veteran"
+[1] "Precision: 0.125"
+[1] "Recall: 0.0769230769230769"
+[1] "F1-Score: 0.0952380952380952"
+[1] "Variable Importance:"
+    Young Prime Veteran MeanDecreaseAccuracy MeanDecreaseGini
+PTS  2.34 -1.46    2.10                 2.33            90.84
+W    5.89  0.55   -0.64                 5.65            72.76
+L    9.55  2.53   -6.20                 7.37            73.74
+From the metrics above, we can say that the random forest model is performing well in predicting the young class with high precision, recall and f1 score.And the model is struggling with the prime class as we can see the values. So, even though the accuracy is moderate with 51 percentage we can say that model is biased with young class. Sometime, this may occur because we may have majority of younger class after we have created the age category variable.
+
+
+```{r}
+# Load the necessary library
+library(dplyr)
+library(ggplot2)
+library(glm2)
+
+# Assuming your data is already loaded into nba_data
+
+# Define a threshold for what you consider to be a "best" team. 
+# This could be based on domain knowledge or statistical analysis, such as using the mean or median.
+# For this example, let's assume that the top 25% of teams in terms of wins are considered "best".
+win_threshold <- quantile(nba_data$W, 0.75)
+
+# Create a binary variable where 1 indicates a "best" team and 0 otherwise
+nba_data$BestTeam <- ifelse(nba_data$W > win_threshold, 1, 0)
+
+# Perform the logistic regression
+logistic_model <- glm(BestTeam ~ W, data = nba_data, family = binomial())
+
+# Summary of the logistic regression model
+summary(logistic_model)
+
+# Predicting the probabilities of being a "best" team based on the wins
+nba_data$PredictedProbability <- predict(logistic_model, type = "response")
+
+# A threshold for classification can be set to decide the cut-off probability for a team being classified as best
+# For example, if you choose a cut-off of 0.5
+nba_data$PredictedBest <- ifelse(nba_data$PredictedProbability > 0.5, 1, 0)
+```
+
+```{r}
+# Load the necessary libraries
+library(dplyr)
+library(glm2)
+
+# Assuming your data is loaded into a dataframe called nba_data
+
+# Define the criteria for being the best team
+# For example, you might say the top 25% of teams by points are considered 'best'
+best_team_cutoff <- quantile(nba_data$PTS, 0.75)
+
+# Define the binary outcome for the team
+nba_data$IsBestTeam <- ifelse(nba_data$PTS > best_team_cutoff, 1, 0)
+
+# Determine the best player in each team by the maximum points scored
+best_players <- nba_data %>%
+  group_by(Team) %>%
+  summarise(BestPlayerPTS = max(PTS)) %>%
+  left_join(nba_data, by = "Team") %>%
+  mutate(IsBestPlayer = ifelse(PTS == BestPlayerPTS, 1, 0)) %>%
+  select(Team, PName, IsBestPlayer)
+
+# Join this back to the original dataframe
+nba_data <- nba_data %>%
+  left_join(best_players, by = c("Team", "PName"))
+
+# Perform logistic regression
+logistic_model <- glm(IsBestTeam ~ PTS + IsBestPlayer, data = nba_data, family = binomial())
+
+# Summary of the model
+summary(logistic_model)
+
+# Predict the probabilities
+nba_data$PredictedProbability <- predict(logistic_model, type = "response")
+
+# Check the predictions
+predicted_best_teams <- nba_data %>%
+  arrange(desc(PredictedProbability)) %>%
+  select(Team, PName, PredictedProbability) %>%
+  distinct(Team, .keep_all = TRUE) %>%
+  head()
+
+predicted_best_teams
+```
+
+# 6.Conclusion.
+Overall, we performed three models and felt random forest is the better model among them. From the metrics that we had obtained from the random forest model,we can say that young players are performing better than prime and veteran players and we can also say that age is very important factor that impacts on the performance. And talking about the accuracy which is 51% is not that higher than we thought it would be. But as we know, we cant change the data as we want to get higher accuracy for our analysis. Also, this research is limited to only on the current dataset that we are dealing and this may change with other data. So, we can conclude that young players may perform very well than prime and veteran players as they can be very fit. All our conclusion is to be considered within the context our dataset and analysis methods used. 
